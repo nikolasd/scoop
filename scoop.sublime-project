@@ -2,13 +2,8 @@
 	"folders":
 	[
 		{
-			"path": ".",
-			"file_exclude_patterns": [ "*.git*", "*.sublime-*"],
-			"folder_exclude_patterns": [ "tmp" ]
+			"follow_symlinks": true,
+			"path": "C:\\development\\scoop"
 		}
-	],
-	"settings": {
-		"default_line_ending": "windows",
-		"tab_size": 4
-	}
+	]
 }
