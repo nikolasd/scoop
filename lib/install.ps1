@@ -156,10 +156,10 @@ function dl_urls($app, $version, $manifest, $architecture, $dir) {
 	$fname # returns the last downloaded file
 }
 
-function is_in_dir($dir, $file) {
-	$file = "$(fullpath $file)"
+function is_in_dir($dir, $check) {
+	$check = "$(fullpath $check)"
 	$dir = "$(fullpath $dir)"
-	$file -match "^$([regex]::escape("$dir\"))"
+	$check -match "^$([regex]::escape("$dir"))(\\|`$)"
 }
 
 # hashes
@@ -448,7 +448,7 @@ function env_add_path($manifest, $dir, $global) {
 	$manifest.env_add_path | ? { $_ } | % {
 		$path_dir = "$dir\$($_)"
 		if(!(is_in_dir $dir $path_dir)) {
-			abort "error in manifest: add_to_path '$_' is outside the app directory"
+			abort "error in manifest: env_add_path '$_' is outside the app directory"
 		}
 		add_first_in_path $path_dir $global
 	}
