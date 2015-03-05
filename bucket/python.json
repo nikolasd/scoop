@@ -1,32 +1,24 @@
 {
 	"homepage": "http://www.python.org",
-	"license": "http://docs.python.org/3.3/license.html",
-	"version": "3.3.2",
+	"license": "http://docs.python.org/3.4/license",
+	"version": "3.4.3",
 	"architecture": {
 		"64bit": {
-			"url": "http://www.python.org/ftp/python/3.3.2/python-3.3.2.amd64.msi",
-			"hash": "md5:2477b4bd8e9a337705f7b5fda8b3b45f",
-			"msi": {
-				"silent": true,
-				"code": "{9FA9A2A6-19E4-381A-8AF3-F8CF12F0DCF0}",
-				"args": ["addlocal=\"DefaultFeature\""]
-			}
+			"url": "https://www.python.org/ftp/python/3.4.3/python-3.4.3.amd64.msi",
+			"hash": "md5:f6ade29acaf8fcdc0463e69a6e7ccf87"
 		},
 		"32bit": {
-			"url": "http://www.python.org/ftp/python/3.3.2/python-3.3.2.msi",
-			"hash": "md5:0d9db9c2316562c62e1e4c347b6f9430",
-			"msi": {
-				"silent": true,
-				"code": "{92389DE9-939E-341B-A076-1D52D7DBCA71}",
-				"args": ["addlocal=\"DefaultFeature\""]
-			}
+			"url": "https://www.python.org/ftp/python/3.4.3/python-3.4.3.msi",
+			"hash": "md5:cb450d1cc616bfc8f7a2d6bd88780bf6"
 		}
 	},
-	"bin": [ "python.exe", "py.exe" ],
+	"bin": [
+		"python.exe",
+		"py.exe",
+		"pythonw.exe",
+		[ "python.exe", "python3" ]
+	],
 	"env_add_path": [ "scripts" ],
-	"post_install": "pushd $env:temp
-	$s = 'http://python-distribute.org/distribute_setup.py'
-	echo \"running $s...\";(new-object net.webclient).downloadstring($s) | python 2>&1 > $null
-	popd",
-	"notes": "To use PIP to manage Python packages, run 'easy_install pip'"
+	"post_install": "python -m ensurepip; cp (gcm pip3).path \"$(split-path (gcm pip3).path)/pip.exe\"",
+	"checkver": "<p>Latest: <a href=\".*\">Python ([0-9\\.]+)</a> - <a.*>.*</a></p>"
 }

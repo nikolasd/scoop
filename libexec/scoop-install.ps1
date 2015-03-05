@@ -23,21 +23,12 @@
 . "$psscriptroot\..\lib\versions.ps1"
 . "$psscriptroot\..\lib\help.ps1"
 . "$psscriptroot\..\lib\getopt.ps1"
+. "$psscriptroot\..\lib\depends.ps1"
+. "$psscriptroot\..\lib\config.ps1"
 
-function install($app, $architecture, $global) {
-	$app, $manifest, $bucket, $url = locate $app
-
-	if(!$manifest) {
-		abort "couldn't find manifest for $app$(if($url) { " at the URL $url" })"
-	}
-
-	$version = $manifest.version
-	if(!$version) { abort "manifest doesn't specify a version" }
-	if($version -match '[^\w\.\-_]') {
-		abort "manifest version has unsupported character '$($matches[0])'"
-	}
-
-	if(installed $app $global) {
+function ensure_none_installed($apps, $global) {
+	$app = @(all_installed $apps $global)[0] # might return more than one; just get the first
+	if($app) {
 		$global_flag = $null; if($global){$global_flag = ' --global'}
 
 		$version = @(versions $app $global)[-1]
@@ -46,43 +37,13 @@ function install($app, $architecture, $global) {
 		}
 		abort "$app ($version) is already installed.`nuse 'scoop update $app$global_flag' to install a new version."
 	}
-
-	check_requirements $manifest $architecture
-
-	"installing $app ($version)"
-
-	$dir = ensure (versiondir $app $version $global)
-
-	$fname = dl_urls $app $version $manifest $architecture $dir
-	unpack_inno $fname $manifest $dir
-	run_installer $fname $manifest $architecture $dir
-	ensure_install_dir_not_in_path $dir $global
-	create_shims $manifest $dir $global
-	if($global) { ensure_scoop_in_path $global } # can assume local scoop is in path
-	env_add_path $manifest $dir $global
-	env_set $manifest $dir $global
-	post_install $manifest
-
-	# save info for uninstall
-	save_installed_manifest $app $bucket $dir $url
-	save_install_info @{ 'architecture' = $architecture; 'url' = $url; 'bucket' = $bucket } $dir
-
-	success "$app ($version) was installed successfully!"
-
-	show_notes $manifest
 }
 
 $opt, $apps, $err = getopt $args 'ga:' 'global', 'arch='
 if($err) { "scoop install: $err"; exit 1 }
 
 $global = $opt.g -or $opt.global
-$architecture = $opt.a + $opt.arch
-
-switch($architecture) {
-	'' { $architecture = architecture }
-	{ @('32bit','64bit') -contains $_ } { }
-	default { abort "invalid architecture: '$architecture'"}
-}
+$architecture = ensure_architecture $opt.a + $opt.arch
 
 if(!$apps) { 'ERROR: <app> missing'; my_usage; exit 1 }
 
@@ -90,6 +51,12 @@ if($global -and !(is_admin)) {
 	'ERROR: you need admin rights to install global apps'; exit 1
 }
 
-$apps | % { install $_ $architecture $global }
+ensure_none_installed $apps $global
+
+$apps = install_order $apps $architecture # adds dependencies
+ensure_none_failed $apps $global
+$apps = prune_installed $apps $global # removes dependencies that are already installed
+
+$apps | % { install_app $_ $architecture $global }
 
 exit 0

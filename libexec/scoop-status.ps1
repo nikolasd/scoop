@@ -1,10 +1,12 @@
 # Usage: scoop status
-# Summary: Show status information
+# Summary: Show status and check for new app versions
 
 . "$psscriptroot\..\lib\core.ps1"
 . "$psscriptroot\..\lib\manifest.ps1"
 . "$psscriptroot\..\lib\buckets.ps1"
 . "$psscriptroot\..\lib\versions.ps1"
+. "$psscriptroot\..\lib\depends.ps1"
+. "$psscriptroot\..\lib\config.ps1"
 
 function timeago($when) {
 	$diff = [datetime]::now - $last_update
@@ -25,6 +27,7 @@ if(test-path $timestamp) {
 $failed = @()
 $old = @()
 $removed = @()
+$missing_deps = @()
 
 $true, $false | % { # local and global apps
 	$global = $_
@@ -47,6 +50,11 @@ $true, $false | % { # local and global apps
 
 		if((compare_versions $manifest.version $version) -gt 0) {
 			$old += @{ $app = @($version, $manifest.version) }
+		}
+
+		$deps = @(runtime_deps $manifest) | ? { !(installed $_) }
+		if($deps) {
+			$missing_deps += ,(@($app) + @($deps))
 		}
 	}
 }
@@ -75,7 +83,15 @@ if($failed) {
 	}
 }
 
-if(!$old -and !$removed -and !$failed) {
+if($missing_deps) {
+	"missing runtime dependencies:"
+	$missing_deps | % {
+		$app, $deps = $_
+		"    $app requires $([string]::join(',', $deps))"
+	}
+}
+
+if(!$old -and !$removed -and !$failed -and !$missing_deps) {
 	success "everything is ok!"
 }
 

@@ -1,15 +1,19 @@
 {
 	"homepage": "http://curl.haxx.se/",
-	"version": "7.30.0",
+	"version": "7.39.0",
 	"licence": "MIT",
-	"url": [
-		"http://curl.haxx.se/gknw.net/7.30.0/dist-w32/curl-7.30.0-rtmp-ssh2-ssl-sspi-zlib-idn-static-bin-w32.zip",
-		"http://curl.haxx.se/ca/cacert.pem#/curl-ca-bundle.crt"
-	],
-	"extract_dir": "curl-7.30.0-rtmp-ssh2-ssl-sspi-zlib-idn-static-bin-w32",
-	"hash": [
-		"90af768c246136c14a2ae52e8775fa4d976eda4632159bc565e1a539b4f15e1a",
-		null
-	],
-	"bin": "curl.exe"
+	"architecture": {
+		"64bit": {
+			"url": "http://www.confusedbycode.com/curl/curl-7.39.0-win64.zip",
+			"hash": "946c3ab2625b9352a846e493319978b1ef2818173c711ed8b1bb8c0e04189ee4",
+			"extract_dir": "curl-7.39.0-win64"
+		},
+		"32bit": {
+			"url": "http://www.confusedbycode.com/curl/curl-7.39.0-win32.zip",
+			"hash": "e97a78dc97ece670580cccf735a5ec048513da0a9ba5135d4ae227b7cde68dba",
+			"extract_dir": "curl-7.39.0-win32"
+		}
+	},
+	"bin": "bin/curl.exe",
+	"checkver": "The most recent stable version is\\s*<b>([0-99\\.]+)"
 }

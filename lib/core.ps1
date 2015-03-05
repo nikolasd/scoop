@@ -1,5 +1,5 @@
-$scoopdir = "~\appdata\local\scoop"
-$globaldir = "$($env:programdata.tolower())\scoop"
+$scoopdir = $env:SCOOP, "~\appdata\local\scoop" | select -first 1
+$globaldir = $env:SCOOP_GLOBAL, "$($env:programdata.tolower())\scoop" | select -first 1
 $cachedir = "$scoopdir\cache" # always local
 
 # helper functions
@@ -27,7 +27,10 @@ function appdir($app, $global) { "$(appsdir $global)\$app" }
 function versiondir($app, $version, $global) { "$(appdir $app $global)\$version" }
 
 # apps
-function installed($app, $global) { return test-path (appdir $app $global) }
+function installed($app, $global=$null) {
+	if($global -eq $null) { return (installed $app $true) -or (installed $app $false) }
+	return test-path (appdir $app $global)
+}
 function installed_apps($global) {
 	$dir = appsdir $global
 	if(test-path $dir) {
@@ -53,59 +56,89 @@ function is_local($path) {
 }
 
 # operations
-function dl($url,$to) { (new-object system.net.webClient).downloadFile($url,$to) }
+function dl($url,$to) {
+	$wc = new-object system.net.webClient
+	$wc.headers.add('User-Agent', 'Scoop/1.0')
+	$wc.downloadFile($url,$to)
+
+}
 function env($name,$global,$val='__get') {
 	$target = 'User'; if($global) {$target = 'Machine'}
 	if($val -eq '__get') { [environment]::getEnvironmentVariable($name,$target) }
 	else { [environment]::setEnvironmentVariable($name,$val,$target) }
 }
-function unzip($path,$to,$folder) {
+function unzip($path,$to) {
 	if(!(test-path $path)) { abort "can't find $path to unzip"}
+	try { add-type -assembly "System.IO.Compression.FileSystem" -ea stop }
+	catch { unzip_old $path $to; return } # for .net earlier than 4.5
+	try {
+		[io.compression.zipfile]::extracttodirectory($path,$to)
+	} catch [system.io.pathtoolongexception] {
+		# try to fall back to 7zip if path is too long
+		if(7zip_installed) {
+			extract_7zip $path $to $false
+			return
+		} else {
+			abort "unzip failed: Windows can't handle the long paths in this zip file.`nrun 'scoop install 7zip' and try again."
+		}
+	} catch {
+		abort "unzip failed: $_"
+	}
+}
+function unzip_old($path,$to) {
+	# fallback for .net earlier than 4.5
 	$shell = (new-object -com shell.application -strict)
 	$zipfiles = $shell.namespace("$path").items()
-	
-	if($folder) { # note: couldn't get this to work as a separate function
-		$next, $rem = $folder.split('\')
-		while($next) {
-			$found = $false
-			foreach($item in $zipfiles) {
-				if($item.isfolder -and ($item.name -eq $next)) {
-					$zipfiles = $item.getfolder.items()
-					$found = $true
-					break
-				}
-			}
-			if(!$found) { abort "couldn't find folder '$folder' inside $(friendly_path $path)" }
-			$next, $rem = $rem
-		}
-	}
-
+	$to = ensure $to
 	$shell.namespace("$to").copyHere($zipfiles, 4) # 4 = don't show progress dialog
 }
 
-function shim($path, $global) {
+function movedir($from, $to) {
+	$from = $from.trimend('\')
+	$to = $to.trimend('\')
+
+	$out = robocopy "$from" "$to" /e /move
+	if($lastexitcode -ge 8) {
+		throw "error moving directory: `n$out"
+	}
+}
+
+function shim($path, $global, $name, $arg) {
 	if(!(test-path $path)) { abort "can't shim $(fname $path): couldn't find $path" }
 	$abs_shimdir = ensure (shimdir $global)
-	$shim = "$abs_shimdir\$(strip_ext(fname $path).tolower()).ps1"
+	if(!$name) { $name = strip_ext (fname $path) }
+
+	$shim = "$abs_shimdir\$($name.tolower()).ps1"
 
 	# note: use > for first line to replace file, then >> to append following lines
 	echo '# ensure $HOME is set for MSYS programs' > $shim
 	echo "if(!`$env:home) { `$env:home = `"`$home\`" }" >> $shim
 	echo 'if($env:home -eq "\") { $env:home = $env:allusersprofile }' >> $shim
 	echo "`$path = '$path'" >> $shim
+	if($arg) {
+		echo "`$args = '$($arg -join "', '")', `$args" >> $shim
+	}
 	echo 'if($myinvocation.expectingInput) { $input | & $path @args } else { & $path @args }' >> $shim
 
-	if($path -match '\.((exe)|(bat)|(cmd))$') {
-		# shim .exe, .bat, .cmd so they can be used by programs with no awareness of PSH
+	if($path -match '\.exe$') {
+		# for programs with no awareness of any shell
+		$shim_exe = "$(strip_ext($shim)).shim"
+		cp "$(versiondir 'scoop' 'current')\supporting\shimexe\shim.exe" "$(strip_ext($shim)).exe" -force
+		echo "path = $(resolve-path $path)" | out-file $shim_exe -encoding oem
+		if($arg) {
+			echo "args = $arg" | out-file $shim_exe -encoding oem -append
+		}
+	} elseif($path -match '\.((bat)|(cmd))$') {
+		# shim .bat, .cmd so they can be used by programs with no awareness of PSH
 		$shim_cmd = "$(strip_ext($shim)).cmd"
 		':: ensure $HOME is set for MSYS programs'           | out-file $shim_cmd -encoding oem
 		'@if "%home%"=="" set home=%homedrive%%homepath%\'   | out-file $shim_cmd -encoding oem -append
 		'@if "%home%"=="\" set home=%allusersprofile%\'      | out-file $shim_cmd -encoding oem -append
-		"@`"$path`" %*"                                      | out-file $shim_cmd -encoding oem -append
+		"@`"$(resolve-path $path)`" $arg %*"                 | out-file $shim_cmd -encoding oem -append
 	} elseif($path -match '\.ps1$') {
 		# make ps1 accessible from cmd.exe
 		$shim_cmd = "$(strip_ext($shim)).cmd"
-		"@powershell -noprofile -ex unrestricted `"& '$path' %*;exit `$lastexitcode`"" | out-file $shim_cmd -encoding oem
+		"@powershell -noprofile -ex unrestricted `"& '$(resolve-path $path)' %*;exit `$lastexitcode`"" | out-file $shim_cmd -encoding oem
 	}
 }
 
@@ -161,4 +194,8 @@ function wraptext($text, $width) {
 	}
 
 	$lines -join "`n"
+}
+
+function pluralize($count, $singular, $plural) {
+	if($count -eq 1) { $singular } else { $plural }
 }

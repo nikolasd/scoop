@@ -1,20 +1,21 @@
 {
-	"version": "1.1.2",
+	"version": "1.4.1",
 	"homepage": "http://golang.org",
 	"license": "http://golang.org/LICENSE",
 	"architecture": {
 		"64bit": {
-			"url": "https://go.googlecode.com/files/go1.1.2.windows-amd64.zip",
-			"hash": "sha1:ab0a37ac5a71720e9a5a7b0a5f67afc432e872c6"
+			"url": "https://storage.googleapis.com/golang/go1.4.1.windows-amd64.zip",
+			"hash": "sha1:a2cb84516e08c6a26323764af443786733e3132c"
 		},
 		"32bit": {
-			"url": "https://go.googlecode.com/files/go1.1.2.windows-386.zip",
-			"hash": "sha1:f98d0fb3d31beb6587c265d220da7b17e302de4c"
+			"url": "https://storage.googleapis.com/golang/go1.4.1.windows-386.zip",
+			"hash": "sha1:5f1b6b8b29fddf5265217e0423b896551bbb85ab"
 		}
 	},
 	"extract_dir": "go",
 	"env_add_path": "bin",
 	"env_set": {
 		"GOROOT": "$dir"
-	}
+	},
+	"checkver": "<div id=\"footer\">\\s*Build version go([0-9\\.]+)\\.<br>"
 }

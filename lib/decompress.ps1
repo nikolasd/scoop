@@ -7,11 +7,10 @@ function requires_7zip($manifest, $architecture) {
 }
 
 function file_requires_7zip($fname) {
-	$fname -match '\.((gz)|(tar)|(lzma)|(bz)|(7z)|(rar))$'
+	$fname -match '\.((gz)|(tar)|(tgz)|(lzma)|(bz)|(7z)|(rar)|(iso)|(xz))$'
 }
 
 function extract_7zip($path, $to, $recurse) {
-	if(!$recurse) { write-host "extracting..." -nonewline }
 	$output = 7z x "$path" -o"$to" -y
 	if($lastexitcode -ne 0) { abort "exit code was $lastexitcode" }
 
@@ -21,6 +20,5 @@ function extract_7zip($path, $to, $recurse) {
 		if(test-path "$to\$tar") { extract_7zip "$to\$tar" $to $true }
 	}
 
-	rm $path
-	if(!$recurse) { write-host "done" }
+	if($recurse) { rm $path } # clean up intermediate files
 }

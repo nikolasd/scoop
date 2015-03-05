@@ -1,17 +1,17 @@
 {
 	"homepage": "http://mariadb.org",
-	"version": "5.5.33a",
+	"version": "10.0.14",
 	"license": "GPL2",
 	"architecture": {
 		"64bit": {
-			"url": "http://ftp.osuosl.org/pub/mariadb/mariadb-5.5.33a/winx64-packages/mariadb-5.5.33a-winx64.zip",
-			"hash": "md5:ac97429e9288419c1b357c5c84e95fc2",
-			"extract_dir": "mariadb-5.5.33a-winx64"
+			"url": "https://downloads.mariadb.org/f/mariadb-10.0.14/winx64-packages/mariadb-10.0.14-winx64.zip",
+			"hash": "md5:6880f94badb9a0198549d61d243af1e3",
+			"extract_dir": "mariadb-10.0.14-winx64"
 		},
 		"32bit": {
-			"url": "http://ftp.osuosl.org/pub/mariadb/mariadb-5.5.33a/win32-packages/mariadb-5.5.33a-win32.zip",
-			"hash": "md5:7eb1f673dae6489be98334f4b29bee56",
-			"extract_dir": "mariadb-5.5.33a-win32"
+			"url": "https://downloads.mariadb.org/f/mariadb-10.0.14/win32-packages/mariadb-10.0.14-win32.zip",
+			"hash": "md5:daff6549e7a924d550f369ce665e72bc",
+			"extract_dir": "mariadb-10.0.14-win32"
 		}
 	},
 	"bin": [
