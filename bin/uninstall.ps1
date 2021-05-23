@@ -1,67 +1,104 @@
-param($global)
+<#
+.SYNOPSIS
+    Uninstall ALL scoop applications and scoop itself.
+.PARAMETER global
+    Global applications will be uninstalled.
+.PARAMETER purge
+    Persisted data will be deleted.
+#>
+param(
+    [bool] $global,
+    [bool] $purge
+)
 
-. "$psscriptroot\..\lib\core.ps1"
-. "$psscriptroot\..\lib\install.ps1"
-. "$psscriptroot\..\lib\versions.ps1"
-. "$psscriptroot\..\lib\manifest.ps1"
+. "$PSScriptRoot\..\lib\core.ps1"
+. "$PSScriptRoot\..\lib\install.ps1"
+. "$PSScriptRoot\..\lib\shortcuts.ps1"
+. "$PSScriptRoot\..\lib\versions.ps1"
+. "$PSScriptRoot\..\lib\manifest.ps1"
 
-if($global -and !(is_admin)) {
-	"ERROR: you need admin rights to uninstall globally"; exit 1
+if ($global -and !(is_admin)) {
+    error 'You need admin rights to uninstall globally.'
+    exit 1
 }
 
-warn 'this will uninstall scoop and all the programs that have been installed with scoop!'
-$yn = read-host 'are you sure? (yN)'
-if($yn -notlike 'y*') { exit }
+if ($purge) {
+    warn 'This will uninstall Scoop, all the programs that have been installed with Scoop and all persisted data!'
+} else {
+    warn 'This will uninstall Scoop and all the programs that have been installed with Scoop!'
+}
+$yn = Read-Host 'Are you sure? (yN)'
+if ($yn -notlike 'y*') { exit }
 
 $errors = $false
+
+# Uninstall given app
 function do_uninstall($app, $global) {
-	$version = current_version $app $global
-	$dir = versiondir $app $version $global
-	$manifest = installed_manifest $app $version $global
-	$install = install_info $app $version $global
-	$architecture = $install.architecture
+    $version = current_version $app $global
+    $dir = versiondir $app $version $global
+    $manifest = installed_manifest $app $version $global
+    $install = install_info $app $version $global
+    $architecture = $install.architecture
 
-	echo "uninstalling $app"
-	run_uninstaller $manifest $architecture $dir
-	rm_shims $manifest $global
-	env_rm_path $manifest $dir $global
-	env_rm $manifest $global
+    Write-Output "Uninstalling '$app'"
+    run_uninstaller $manifest $architecture $dir
+    rm_shims $manifest $global $architecture
 
-	$appdir = appdir $app $global
-	try {
-		rm -r -force $appdir -ea stop
-	} catch {
-		$errors = $true
-		warn "couldn't remove $(friendly_path $appdir): $_.exception"
-	}
+    # If a junction was used during install, that will have been used
+    # as the reference directory. Othewise it will just be the version
+    # directory.
+    $refdir = unlink_current (appdir $app $global)
+
+    env_rm_path $manifest $refdir $global
+    env_rm $manifest $global
+
+    $appdir = appdir $app $global
+    try {
+        Remove-Item $appdir -Recurse -Force -ErrorAction Stop
+    } catch {
+        $errors = $true
+        warn "Couldn't remove $(friendly_path $appdir): $_.Exception"
+    }
 }
+
 function rm_dir($dir) {
-	try {
-		rm -r -force $dir -ea stop
-	} catch {
-		abort "couldn't remove $(friendly_path $dir): $_"
-	}
+    try {
+        Remove-Item $dir -Recurse -Force -ErrorAction Stop
+    } catch {
+        abort "Couldn't remove $(friendly_path $dir): $_"
+    }
 }
 
-# run uninstallation for each app if necessary, continuing if there's
+# Remove all folders (except persist) inside given scoop directory.
+function keep_onlypersist($directory) {
+    Get-ChildItem $directory -Exclude 'persist' | ForEach-Object { rm_dir $_ }
+}
+
+# Run uninstallation for each app if necessary, continuing if there's
 # a problem deleting a directory (which is quite likely)
-if($global) {
-	installed_apps $true | % { # global apps
-		do_uninstall $_ $true
-	}
-}
-installed_apps $false | % { # local apps
-	do_uninstall $_ $false
+if ($global) {
+    installed_apps $true | ForEach-Object { # global apps
+        do_uninstall $_ $true
+    }
 }
 
-if($errors) {
-	abort "not all apps could be deleted. try again or restart"
+installed_apps $false | ForEach-Object { # local apps
+    do_uninstall $_ $false
 }
 
-rm_dir $scoopdir
-if($global) { rm_dir $globaldir }
+if ($errors) {
+    abort 'Not all apps could be deleted. Try again or restart.'
+}
+
+if ($purge) {
+    rm_dir $scoopdir
+    if ($global) { rm_dir $globaldir }
+} else {
+    keep_onlypersist $scoopdir
+    if ($global) { keep_onlypersist $globaldir }
+}
 
 remove_from_path (shimdir $false)
-if($global) { remove_from_path (shimdir $true) }
+if ($global) { remove_from_path (shimdir $true) }
 
-success "scoop has been uninstalled"
+success 'Scoop has been uninstalled.'
